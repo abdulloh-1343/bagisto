@@ -2,6 +2,7 @@
 FROM ubuntu:22.04
 
 # Обновление системы и установка зависимостей
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     php php-cli php-mbstring php-xml php-bcmath php-curl php-zip php-mysql php-sqlite3 php-gd php-tokenizer \
     unzip curl git zip nodejs npm nginx supervisor sqlite3
