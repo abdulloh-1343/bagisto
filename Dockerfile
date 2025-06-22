@@ -12,7 +12,8 @@ RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
 # Установка Node 18
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+RUN apt-get remove -y nodejs libnode-dev && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
 # Создание рабочей директории
