@@ -1,58 +1,44 @@
-# Используем официальный образ composer с PHP
-FROM composer:latest
+# Используем PHP с Apache и возможностью устанавливать пакеты
+FROM php:8.2-apache
 
 # Устанавливаем рабочую директорию
 WORKDIR /var/www/html
 
-# Копируем весь проект в контейнер
-COPY . .
-
-# Устанавливаем зависимости PHP и Node.js
+# Устанавливаем системные зависимости и Node.js 18
 RUN apt-get update && \
-    apt-get remove -y nodejs libnode-dev libnode72 || true && \
-    rm -f /usr/share/systemtap/tapset/node.stp || true && \
+    apt-get install -y curl gnupg2 ca-certificates lsb-release && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y \
+        nodejs \
         unzip \
         git \
-        curl \
         libpng-dev \
         libonig-dev \
         libxml2-dev \
-        zip \
         libzip-dev \
-        php-mysql \
-        php-sqlite3 \
-        php-curl \
-        php-mbstring \
-        php-dom \
-        php-bcmath \
-        php-zip \
-        php-gd \
-        php-tokenizer \
-        php-fileinfo \
-        gnupg \
-        ca-certificates && \
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
+        zip \
+        npm && \
+    docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+
+# Устанавливаем Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Копируем проект
+COPY . .
+
+# Устанавливаем PHP и Node зависимости
+RUN composer install --no-dev --optimize-autoloader && \
     npm install && \
     npm run build
 
-# Устанавливаем зависимости Laravel через Composer
-RUN composer install --no-dev --optimize-autoloader
-
-# Кэшируем конфигурацию Laravel
+# Laravel config cache
 RUN php artisan config:cache && \
     php artisan route:cache && \
-    php artisan view:cache
+    php artisan view:cache && \
+    php artisan storage:link || true
 
-# Создаём символическую ссылку для storage
-RUN php artisan storage:link || true
+# Открываем порт
+EXPOSE 80
 
-# Применяем миграции БД
-RUN php artisan migrate --force
-
-# Открываем порт для сервера
-EXPOSE 8000
-
-# Запуск Laravel через встроенный PHP сервер (можно заменить на nginx/php-fpm)
-CMD php artisan serve --host=0.0.0.0 --port=8000
+# Apache уже слушает 80 порт
+CMD ["apache2-foreground"]
