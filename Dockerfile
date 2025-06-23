@@ -31,6 +31,8 @@ RUN composer install --no-dev --optimize-autoloader && \
     npm install && \
     npm run build
 
+RUN npm install && npm run build
+
 # Laravel config cache
 RUN php artisan config:cache && \
     php artisan route:cache && \
