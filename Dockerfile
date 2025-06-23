@@ -1,44 +1,58 @@
-# Установка базового PHP-окружения на основе Ubuntu
-FROM ubuntu:22.04
+# Используем официальный образ composer с PHP
+FROM composer:latest
 
-# Обновление системы и установка зависимостей
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y \
-    php php-cli php-mbstring php-xml php-bcmath php-curl php-zip php-mysql php-sqlite3 php-gd php-tokenizer \
-    unzip curl git zip nodejs npm nginx supervisor sqlite3
-
-# Установка Composer
-RUN curl -sS https://getcomposer.org/installer | php && \
-    mv composer.phar /usr/local/bin/composer
-
-# Установка Node 18
-RUN apt-get remove -y nodejs libnode-dev && \
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs
-
-# Создание рабочей директории
+# Устанавливаем рабочую директорию
 WORKDIR /var/www/html
 
-# Копирование всех файлов
+# Копируем весь проект в контейнер
 COPY . .
 
-# Установка зависимостей Laravel
+# Устанавливаем зависимости PHP и Node.js
+RUN apt-get update && \
+    apt-get remove -y nodejs libnode-dev libnode72 || true && \
+    rm -f /usr/share/systemtap/tapset/node.stp || true && \
+    apt-get install -y \
+        unzip \
+        git \
+        curl \
+        libpng-dev \
+        libonig-dev \
+        libxml2-dev \
+        zip \
+        libzip-dev \
+        php-mysql \
+        php-sqlite3 \
+        php-curl \
+        php-mbstring \
+        php-dom \
+        php-bcmath \
+        php-zip \
+        php-gd \
+        php-tokenizer \
+        php-fileinfo \
+        gnupg \
+        ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install && \
+    npm run build
+
+# Устанавливаем зависимости Laravel через Composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Сборка фронтенда
-RUN npm install && npm run build
+# Кэшируем конфигурацию Laravel
+RUN php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache
 
-# Генерация ключа приложения
-RUN php artisan config:clear && php artisan key:generate
+# Создаём символическую ссылку для storage
+RUN php artisan storage:link || true
 
-# Создание базы SQLite
-RUN mkdir -p database && touch database/database.sqlite
+# Применяем миграции БД
+RUN php artisan migrate --force
 
-# Миграции и ссылка на storage
-RUN php artisan migrate --force && php artisan storage:link
-
-# Открытие порта
+# Открываем порт для сервера
 EXPOSE 8000
 
-# Запуск Laravel
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Запуск Laravel через встроенный PHP сервер (можно заменить на nginx/php-fpm)
+CMD php artisan serve --host=0.0.0.0 --port=8000
